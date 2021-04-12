@@ -26,11 +26,12 @@ SMTP_PORT="${SMTP_PORT:-587}"
 DOMAIN=`echo ${SERVER_HOSTNAME} | awk 'BEGIN{FS=OFS="."}{print $(NF-1),$NF}'`
 
 # Set needed config options
-add_config_value "myhostname" ${SERVER_HOSTNAME}
-add_config_value "mydomain" ${DOMAIN}
+add_config_value "myhostname" "${SERVER_HOSTNAME}"
+add_config_value "mydomain" "${DOMAIN}"
 add_config_value "mydestination" 'localhost'
 add_config_value "myorigin" '$mydomain'
 add_config_value "relayhost" "[${SMTP_SERVER}]:${SMTP_PORT}"
+postconf -e "relay_domains = ${RELAY_DOMAINS}"
 add_config_value "smtp_use_tls" "yes"
 if [ ! -z "${SMTP_USERNAME}" ]; then
   add_config_value "smtp_sasl_auth_enable" "yes"
@@ -47,8 +48,36 @@ if [ "${SMTP_PORT}" = "465" ]; then
   add_config_value "smtp_tls_security_level" "encrypt"
 fi
 
+if [ ! -z "${MASQUERADE_DOMAINS}" ]; then
+  add_config_value "masquerade_classes" "envelope_sender,header_sender,header_recipient"
+  add_config_value "masquerade_domains" "${MASQUERADE_DOMAINS}"
+  add_config_value "masquerade_exceptions" "root"
+fi
+
+if [ "${ENABLE_SUBMISSION}" = "true" ]; then
+    echo "Enable submission support"
+        cat >> "/etc/postfix/master.cf" <<EOF
+submission inet n       -       n       -       -       smtpd
+  -o syslog_name=postfix/submission
+  -o smtpd_tls_security_level=encrypt
+  -o smtpd_sasl_auth_enable=yes
+  -o smtpd_tls_auth_only=yes
+  -o smtpd_reject_unlisted_recipient=no
+  -o smtpd_client_restrictions=\$mua_client_restrictions
+  -o smtpd_helo_restrictions=\$mua_helo_restrictions
+  -o smtpd_sender_restrictions=\$mua_sender_restrictions
+  -o smtpd_recipient_restrictions=
+  -o smtpd_relay_restrictions=permit_sasl_authenticated,reject
+  -o milter_macro_daemon_name=ORIGINATING
+EOF
+
+fi
+
 # Create sasl_passwd file with auth credentials
-if [ ! -f /etc/postfix/sasl_passwd -a ! -z "${SMTP_USERNAME}" ]; then
+if [ ! -z "${SASL_PASSWD_FILE}" ]; then
+    cp "${SASL_PASSWD_FILE}" /etc/postfix/sasl_passwd
+    postmap /etc/postfix/sasl_passwd
+elif [ ! -f /etc/postfix/sasl_passwd -a ! -z "${SMTP_USERNAME}" ]; then
   grep -q "${SMTP_SERVER}" /etc/postfix/sasl_passwd  > /dev/null 2>&1
   if [ $? -gt 0 ]; then
     echo "Adding SASL authentication configuration"
@@ -83,6 +112,31 @@ if [ ! -z "${OVERWRITE_FROM}" ]; then
   postconf -e 'smtp_header_checks = regexp:/etc/postfix/smtp_header_checks'
   echo "Setting configuration option OVERWRITE_FROM with value: ${OVERWRITE_FROM}"
 fi
+
+if [ ! -z "${RELAY_RECIPIENT_MAP_FILE}" ]; then
+    cp "${RELAY_RECIPIENT_MAP_FILE}" /etc/postfix/relay_recipient
+    postmap lmdb:/etc/postfix/relay_recipient
+    postconf -e 'relay_recipient_maps = lmdb:/etc/postfix/relay_recipient'
+fi
+
+if [ ! -z "${TRANSPORT_MAP_FILE}" ]; then
+    cp "${TRANSPORT_MAP_FILE}" /etc/postfix/transport
+    postmap lmdb:/etc/postfix/transport
+    postconf -e 'transport_maps = lmdb:/etc/postfix/transport'
+fi
+
+if [ ! -z "${RECIPIENT_CANONICAL_MAP_FILE}" ]; then
+    cp "${RECIPIENT_CANONICAL_MAP_FILE}" /etc/postfix/recipient_canonical
+    postmap lmdb:/etc/postfix/recipient_canonical
+    postconf -e 'recipient_canonical_maps = lmdb:/etc/postfix/recipient_canonical'
+fi
+
+if [ ! -z "${SENDER_CANONICAL_MAP_FILE}" ]; then
+    cp "${SENDER_CANONICAL_MAP_FILE}" /etc/postfix/sender_canonical
+    postmap lmdb:/etc/postfix/sender_canonical
+    postconf -e 'sender_canonical_maps = lmdb:/etc/postfix/sender_canonical'
+fi
+
 
 #Start services
 

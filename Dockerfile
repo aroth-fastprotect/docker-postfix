@@ -11,9 +11,9 @@ RUN apk update && \
 
 COPY etc/ /etc/
 COPY run.sh /
-RUN chmod +x /run.sh
-RUN newaliases
+RUN chmod +x /run.sh && \
+    newaliases
 
-EXPOSE 25
+EXPOSE 25 587
 #ENTRYPOINT ["/run.sh"]
 CMD ["/run.sh"]

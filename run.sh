@@ -88,6 +88,10 @@ if [ "${ENABLE_SUBMISSION}" = "true" ]; then
     postconf -e "smtp_tls_wrappermode=yes"
     postconf -e "smtp_tls_security_level=encrypt"
 
+    if [ ! -f "/etc/postfix/master.cf.org" ]; then
+        cp "/etc/postfix/master.cf" "/etc/postfix/master.cf.org"
+    fi
+    cp "/etc/postfix/master.cf.org" "/etc/postfix/master.cf"
     echo "Enable submission support"
         cat >> "/etc/postfix/master.cf" <<EOF
 submission inet n       -       n       -       -       smtpd

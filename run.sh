@@ -16,27 +16,44 @@ function add_config_value() {
 # Read password from file to avoid unsecure env variables
 if [ -n "${SMTP_PASSWORD_FILE}" ]; then [ -f "${SMTP_PASSWORD_FILE}" ] && read SMTP_PASSWORD < ${SMTP_PASSWORD_FILE} || echo "SMTP_PASSWORD_FILE defined, but file not existing, skipping."; fi
 
-[ -z "${SMTP_SERVER}" ] && echo "SMTP_SERVER is not set" && exit 1
+if [ -z "${SMTP_SERVER}" -a -z "${TRANSPORT_MAP_FILE}" ]; then
+    echo "no SMTP_SERVER and no ${TRANSPORT_MAP_FILE} is set; exit"
+    exit 1
+fi
 [ -z "${SERVER_HOSTNAME}" ] && echo "SERVER_HOSTNAME is not set" && exit 1
 [ ! -z "${SMTP_USERNAME}" -a -z "${SMTP_PASSWORD}" ] && echo "SMTP_USERNAME is set but SMTP_PASSWORD is not set" && exit 1
 
 SMTP_PORT="${SMTP_PORT:-587}"
+INET_INTERFACES="${INET_INTERFACES:-all}"
+INET_PROTOCOLS="${INET_PROTOCOLS:-all}"
 
 #Get the domain from the server host name
-DOMAIN=`echo ${SERVER_HOSTNAME} | awk 'BEGIN{FS=OFS="."}{print $(NF-1),$NF}'`
-
+if [ -z "${SERVER_DOMAIN}" ]; then
+    SERVER_DOMAIN=`echo ${SERVER_HOSTNAME} | awk 'BEGIN{FS=OFS="."}{print $(NF-1),$NF}'`
+fi
 # Set needed config options
+
+add_config_value "inet_interfaces" "${INET_INTERFACES}"
+add_config_value "inet_protocols" "${INET_PROTOCOLS}"
 add_config_value "myhostname" "${SERVER_HOSTNAME}"
-add_config_value "mydomain" "${DOMAIN}"
+add_config_value "mydomain" "${SERVER_DOMAIN}"
 add_config_value "mydestination" 'localhost'
 add_config_value "myorigin" '$mydomain'
-add_config_value "relayhost" "[${SMTP_SERVER}]:${SMTP_PORT}"
+if [ -z "${SMTP_SERVER}" ]; then
+    postconf -e "relayhost ="
+else
+    add_config_value "relayhost" "[${SMTP_SERVER}]:${SMTP_PORT}"
+fi
 postconf -e "relay_domains = ${RELAY_DOMAINS}"
+if [ ! -z "${SMTP_BIND_ADDRESS}" ]; then
+    add_config_value "smtp_bind_address" "${SMTP_BIND_ADDRESS}"
+fi
 add_config_value "smtp_use_tls" "yes"
-if [ ! -z "${SMTP_USERNAME}" ]; then
+if [ ! -z "${SMTP_USERNAME}" -o ! -z "${SASL_PASSWD_FILE}" ]; then
   add_config_value "smtp_sasl_auth_enable" "yes"
   add_config_value "smtp_sasl_password_maps" "lmdb:/etc/postfix/sasl_passwd"
   add_config_value "smtp_sasl_security_options" "noanonymous"
+  add_config_value "smtp_sasl_mechanism_filter" "login,plain"
 fi
 add_config_value "always_add_missing_headers" "${ALWAYS_ADD_MISSING_HEADERS:-no}"
 #Also use "native" option to allow looking up hosts added to /etc/hosts via
@@ -54,7 +71,23 @@ if [ ! -z "${MASQUERADE_DOMAINS}" ]; then
   add_config_value "masquerade_exceptions" "root"
 fi
 
+if [ ! -z "${SMTP_CERT_FILE}" ]; then
+    cp "${SMTP_CERT_FILE}" /etc/postfix/smtpd_cert.pem
+    chmod 0644 /etc/postfix/smtpd_cert.pem
+    chown root.root /etc/postfix/smtpd_cert.pem
+    postconf -e "smtpd_tls_cert_file = /etc/postfix/smtpd_cert.pem"
+fi
+if [ ! -z "${SMTP_KEY_FILE}" ]; then
+    cp "${SMTP_KEY_FILE}" /etc/postfix/smtpd_key.pem
+    chmod 0600 /etc/postfix/smtpd_key.pem
+    chown root.root /etc/postfix/smtpd_key.pem
+    postconf -e "smtpd_tls_key_file = /etc/postfix/smtpd_key.pem"
+fi
+
 if [ "${ENABLE_SUBMISSION}" = "true" ]; then
+    postconf -e "smtp_tls_wrappermode=yes"
+    postconf -e "smtp_tls_security_level=encrypt"
+
     echo "Enable submission support"
         cat >> "/etc/postfix/master.cf" <<EOF
 submission inet n       -       n       -       -       smtpd
@@ -63,10 +96,6 @@ submission inet n       -       n       -       -       smtpd
   -o smtpd_sasl_auth_enable=yes
   -o smtpd_tls_auth_only=yes
   -o smtpd_reject_unlisted_recipient=no
-  -o smtpd_client_restrictions=\$mua_client_restrictions
-  -o smtpd_helo_restrictions=\$mua_helo_restrictions
-  -o smtpd_sender_restrictions=\$mua_sender_restrictions
-  -o smtpd_recipient_restrictions=
   -o smtpd_relay_restrictions=permit_sasl_authenticated,reject
   -o milter_macro_daemon_name=ORIGINATING
 EOF

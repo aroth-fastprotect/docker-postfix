@@ -85,7 +85,7 @@ if [ ! -z "${SMTP_KEY_FILE}" ]; then
 fi
 
 if [ "${ENABLE_SUBMISSION}" = "true" ]; then
-    postconf -e "smtp_tls_wrappermode=yes"
+    postconf -e "smtp_tls_wrappermode=no"
     postconf -e "smtp_tls_security_level=encrypt"
 
     if [ ! -f "/etc/postfix/master.cf.org" ]; then

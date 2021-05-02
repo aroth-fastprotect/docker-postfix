@@ -170,6 +170,39 @@ if [ ! -z "${SENDER_CANONICAL_MAP_FILE}" ]; then
     postconf -e 'sender_canonical_maps = lmdb:/etc/postfix/sender_canonical'
 fi
 
+if [ ! -z "${SENDER_LOGIN_MAP_FILE}" ]; then
+    cp "${SENDER_LOGIN_MAP_FILE}" /etc/postfix/sender_login
+    if [ "${SENDER_LOGIN_LDAP}" = "true" ]; then
+        chown postfix.mail /etc/postfix/sender_login
+        postconf -e 'smtpd_sender_login_maps = proxy:ldap:/etc/postfix/sender_login'
+    else
+        postmap lmdb:/etc/postfix/sender_login
+        postconf -e 'smtpd_sender_login_maps = lmdb:/etc/postfix/sender_login'
+    fi
+fi
+
+if [ ! "${SASLAUTHD_AUTHMECH}" = "pam" ]; then
+    echo "Remove saslauthd-pam from supervisord"
+    rm /etc/supervisord.d/saslauthd-pam.ini
+fi
+if [ ! "${SASLAUTHD_AUTHMECH}" = "krb5" ]; then
+    echo "Remove saslauthd-krb5 from supervisord"
+    rm /etc/supervisord.d/saslauthd-krb5.ini
+fi
+
+if [ ! -z "${KRB5_KEYTAB_FILE}" ]; then
+    cp "${KRB5_KEYTAB_FILE}" /etc/krb5.keytab
+    chown postfix.mail /etc/krb5.keytab
+    chmod 0600 /etc/krb5.keytab
+fi
+
+# create dir for saslauthd
+[ ! -d /var/spool/postfix/var/run ] && mkdir -p /var/spool/postfix/var/run
+
+if [ ! -z "${SASLAUTHD_CONF_FILE}" ]; then
+    mkdir /etc/postfix/sasl
+    cp "${SASLAUTHD_CONF_FILE}" /etc/postfix/sasl/smtpd.conf
+fi
 
 #Start services
 

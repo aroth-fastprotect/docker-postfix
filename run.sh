@@ -21,7 +21,10 @@ if [ -z "${SMTP_SERVER}" -a -z "${TRANSPORT_MAP_FILE}" ]; then
     echo "no SMTP_SERVER and no ${TRANSPORT_MAP_FILE} is set; exit"
     exit 1
 fi
-[ -z "${SERVER_HOSTNAME}" ] && echo "SERVER_HOSTNAME is not set" && exit 1
+if [ -z "${SERVER_HOSTNAME}" ]; then
+    SERVER_HOSTNAME=`hostname`
+    echo "SERVER_HOSTNAME is not set; use ${SERVER_HOSTNAME}"
+fi
 [ ! -z "${SMTP_USERNAME}" -a -z "${SMTP_PASSWORD}" ] && echo "SMTP_USERNAME is set but SMTP_PASSWORD is not set" && exit 1
 
 SMTP_PORT="${SMTP_PORT:-587}"
@@ -36,7 +39,7 @@ fi
 
 add_config_value "inet_interfaces" "${INET_INTERFACES}"
 add_config_value "inet_protocols" "${INET_PROTOCOLS}"
-add_config_value "maillog_file" "/dev/stdout"
+#add_config_value "maillog_file" "/dev/stdout"
 add_config_value "myhostname" "${SERVER_HOSTNAME}"
 add_config_value "mydomain" "${SERVER_DOMAIN}"
 add_config_value "mydestination" "${DESTINATION:-localhost}"
@@ -47,6 +50,9 @@ else
     add_config_value "relayhost" "[${SMTP_SERVER}]:${SMTP_PORT}"
 fi
 postconf -e "relay_domains = ${RELAY_DOMAINS}"
+if [ "${RELAY_MYNETWORKS}" = "true" ]; then
+    postconf -e "relay_domains = permit_mynetworks, permit_sasl_authenticated, defer_unauth_destination"
+fi
 if [ ! -z "${SMTP_BIND_ADDRESS}" ]; then
     add_config_value "smtp_bind_address" "${SMTP_BIND_ADDRESS}"
 fi
@@ -129,7 +135,7 @@ if [ ! -z "${SMTP_HEADER_TAG}" ]; then
 fi
 
 #Check for subnet restrictions
-nets='10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16'
+nets='127.0.0.0/8, 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16'
 if [ ! -z "${SMTP_NETWORKS}" ]; then
         for i in $(sed 's/,/\ /g' <<<$SMTP_NETWORKS); do
                 if grep -Eq "[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}/[0-9]{1,2}" <<<$i ; then
@@ -185,11 +191,11 @@ fi
 
 if [ ! "${SASLAUTHD_AUTHMECH}" = "pam" ]; then
     echo "Remove saslauthd-pam from supervisord"
-    rm /etc/supervisord.d/saslauthd-pam.ini
+    test -f /etc/supervisord.d/saslauthd-pam.ini && rm /etc/supervisord.d/saslauthd-pam.ini
 fi
 if [ ! "${SASLAUTHD_AUTHMECH}" = "krb5" ]; then
     echo "Remove saslauthd-krb5 from supervisord"
-    rm /etc/supervisord.d/saslauthd-krb5.ini
+    test -f /etc/supervisord.d/saslauthd-krb5.ini && rm /etc/supervisord.d/saslauthd-krb5.ini
 fi
 
 if [ ! -z "${KRB5_KEYTAB_FILE}" ]; then
@@ -211,5 +217,9 @@ fi
 # If host mounting /var/spool/postfix, we need to delete old pid file before
 # starting services
 rm -f /var/spool/postfix/pid/master.pid
+
+test ! -f /var/log/maillog && touch /var/log/maillog
+chown postfix.postfix /var/log/maillog
+chmod 640 /var/log/maillog
 
 exec supervisord -c /etc/supervisord.conf

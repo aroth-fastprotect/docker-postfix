@@ -13,8 +13,9 @@ function add_config_value() {
  postconf -e "${key} = ${value}"
 }
 
-# Read password from file to avoid unsecure env variables
+# Read password and username from file to avoid unsecure env variables
 if [ -n "${SMTP_PASSWORD_FILE}" ]; then [ -f "${SMTP_PASSWORD_FILE}" ] && read SMTP_PASSWORD < ${SMTP_PASSWORD_FILE} || echo "SMTP_PASSWORD_FILE defined, but file not existing, skipping."; fi
+if [ -n "${SMTP_USERNAME_FILE}" ]; then [ -f "${SMTP_USERNAME_FILE}" ] && read SMTP_USERNAME < ${SMTP_USERNAME_FILE} || echo "SMTP_USERNAME_FILE defined, but file not existing, skipping."; fi
 
 if [ -z "${SMTP_SERVER}" -a -z "${TRANSPORT_MAP_FILE}" ]; then
     echo "no SMTP_SERVER and no ${TRANSPORT_MAP_FILE} is set; exit"
@@ -35,9 +36,10 @@ fi
 
 add_config_value "inet_interfaces" "${INET_INTERFACES}"
 add_config_value "inet_protocols" "${INET_PROTOCOLS}"
+add_config_value "maillog_file" "/dev/stdout"
 add_config_value "myhostname" "${SERVER_HOSTNAME}"
 add_config_value "mydomain" "${SERVER_DOMAIN}"
-add_config_value "mydestination" 'localhost'
+add_config_value "mydestination" "${DESTINATION:-localhost}"
 add_config_value "myorigin" '$mydomain'
 if [ -z "${SMTP_SERVER}" ]; then
     postconf -e "relayhost ="

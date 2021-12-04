@@ -5,14 +5,28 @@
 
 Simple Postfix SMTP TLS relay [docker](http://www.docker.com) alpine based image with no local authentication enabled (to be run in a secure LAN).
 
-It also includes rsyslog to enable logging to stdout.
+This image is available for the following architectures:
 
+* 386
+* amd64 (_latest_ and _alpine_ tags)
+* armv6
+* armv7
+* arm64
 
 _If you want to follow the development of this project check out [my blog](https://www.juanbaptiste.tech/category/postfx)._
 
 ### Available image tags
 
-Currently we only handle a rolling release of new versions so only _latest_ tag is available, but there is [work in progress](https://github.com/juanluisbaptiste/docker-postfix/pull/29) to start releasing versioned images to be able to pin to specific versions in production deployments.
+We use semantic versioning for this image. For all supported architectures there are the following versioned tags:
+
+* Major (1)
+* Minor (1.0)
+* Patch (1.0.0)
+
+Additionally the amd64 architecture has the following tags:
+
+* _latest_
+* _alpine_
 
 *_NOTES_*:
   * The _alpine_ tag has been switched to use the master branch, but it's irrelevant as it is the same as _latest_.
@@ -52,11 +66,18 @@ The following env variable(s) are optional.
 * `SMTP_PASSWORD_FILE` Setting this to a mounted file containing the password, to avoid passwords in env variables. Used like
     -e SMTP_PASSWORD_FILE=/secrets/smtp_password
     -v $(pwd)/secrets/:/secrets/
+
+* `SMTP_USERNAME_FILE` Setting this to a mounted file containing the username, to avoid usernames in env variables. Used like
+    -e SMTP_USERNAME_FILE=/secrets/smtp_username
+    -v $(pwd)/secrets/:/secrets/
+
 * `ALWAYS_ADD_MISSING_HEADERS` This is related to the [always\_add\_missing\_headers](http://www.postfix.org/postconf.5.html#always_add_missing_headers) Postfix option (default: `no`). If set to `yes`, Postfix will always add missing headers among `From:`, `To:`, `Date:` or `Message-ID:`.
 
 * `OVERWRITE_FROM` This will rewrite the from address overwriting it with the specified address for all email being relayed. Example settings:
     OVERWRITE_FROM=email@company.com
     OVERWRITE_FROM="Your Name" <email@company.com>
+
+* `DESTINATION` This will define a list of domains from which incoming messages will be accepted.
 
 To use this container from anywhere, the 25 port or the one specified by `SMTP_PORT` needs to be exposed to the docker host server:
 

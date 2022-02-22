@@ -166,6 +166,18 @@ if [ ! -z "${TRANSPORT_MAP_FILE}" ]; then
     postconf -e 'transport_maps = lmdb:/etc/postfix/transport'
 fi
 
+if [ ! -z "${SMTP_GENERIC_MAP_FILE}" ]; then
+    cp "${SMTP_GENERIC_MAP_FILE}" /etc/postfix/smtp_generic
+    postmap lmdb:/etc/postfix/smtp_generic
+    postconf -e 'smtp_generic_maps = lmdb:/etc/postfix/smtp_generic'
+fi
+
+if [ ! -z "${CANONICAL_MAP_FILE}" ]; then
+    cp "${CANONICAL_MAP_FILE}" /etc/postfix/canonical
+    postmap lmdb:/etc/postfix/canonical
+    postconf -e 'canonical_maps = lmdb:/etc/postfix/canonical'
+fi
+
 if [ ! -z "${RECIPIENT_CANONICAL_MAP_FILE}" ]; then
     cp "${RECIPIENT_CANONICAL_MAP_FILE}" /etc/postfix/recipient_canonical
     postmap lmdb:/etc/postfix/recipient_canonical
@@ -208,7 +220,7 @@ fi
 [ ! -d /var/spool/postfix/var/run ] && mkdir -p /var/spool/postfix/var/run
 
 if [ ! -z "${SASLAUTHD_CONF_FILE}" ]; then
-    mkdir /etc/postfix/sasl
+    [ ! -d /etc/postfix/sasl ] && mkdir /etc/postfix/sasl
     cp "${SASLAUTHD_CONF_FILE}" /etc/postfix/sasl/smtpd.conf
 fi
 

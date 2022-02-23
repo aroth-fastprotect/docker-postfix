@@ -101,7 +101,7 @@ if [ "${ENABLE_SUBMISSION}" = "true" ]; then
     fi
     cp "/etc/postfix/master.cf.org" "/etc/postfix/master.cf"
     echo "Enable submission support"
-        cat >> "/etc/postfix/master.cf" <<EOF
+    cat >> "/etc/postfix/master.cf" <<EOF
 submission inet n       -       n       -       -       smtpd
   -o syslog_name=postfix/submission
   -o smtpd_tls_security_level=encrypt
@@ -218,10 +218,18 @@ fi
 
 # create dir for saslauthd
 [ ! -d /var/spool/postfix/var/run ] && mkdir -p /var/spool/postfix/var/run
+ln -s /var/spool/postfix/var/run/saslauthd/ /var/run/saslauthd
 
+[ ! -d /etc/sasl2 ] && mkdir /etc/sasl2
 if [ ! -z "${SASLAUTHD_CONF_FILE}" ]; then
     [ ! -d /etc/postfix/sasl ] && mkdir /etc/postfix/sasl
     cp "${SASLAUTHD_CONF_FILE}" /etc/postfix/sasl/smtpd.conf
+    cp "${SASLAUTHD_CONF_FILE}" /etc/sasl2/smtpd.conf
+else
+    cat >> "/etc/sasl2/smtpd.conf" <<EOF
+pwcheck_method: saslauthd
+mech_list: PLAIN
+EOF
 fi
 
 #Start services

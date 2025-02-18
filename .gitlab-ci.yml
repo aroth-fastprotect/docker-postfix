@@ -41,11 +41,11 @@ docker-build:
     - |
       if [[ "$CI_COMMIT_BRANCH" == "$CI_DEFAULT_BRANCH" ]]; then
         tag=""
-        pipeline_no="pipeline#${CI_PIPELINE_IID}_${CI_COMMIT_BRANCH}"
+        pipeline_no="pipeline#${CI_PIPELINE_ID}_${CI_COMMIT_BRANCH}"
         echo "Running on default branch '$CI_DEFAULT_BRANCH': tag = 'latest'"
       else
         tag=":${CI_COMMIT_REF_SLUG#*-}"
-        pipeline_no="pipeline#${CI_PIPELINE_IID}_${CI_COMMIT_BRANCH}"
+        pipeline_no="pipeline#${CI_PIPELINE_ID}_${CI_COMMIT_BRANCH}"
         echo "Running on branch '$CI_COMMIT_BRANCH': tag = $tag"
       fi
     - echo "Build for branch $CI_COMMIT_BRANCH"

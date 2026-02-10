@@ -17,7 +17,12 @@ function add_config_value() {
 if [ -n "${SMTP_PASSWORD_FILE}" ]; then [ -e "${SMTP_PASSWORD_FILE}" ] && SMTP_PASSWORD=$(cat "${SMTP_PASSWORD_FILE}") || echo "SMTP_PASSWORD_FILE defined, but file not existing, skipping."; fi
 if [ -n "${SMTP_USERNAME_FILE}" ]; then [ -e "${SMTP_USERNAME_FILE}" ] && SMTP_USERNAME=$(cat "${SMTP_USERNAME_FILE}") || echo "SMTP_USERNAME_FILE defined, but file not existing, skipping."; fi
 
-[ -z "${SMTP_SERVER}" ] && echo "SMTP_SERVER is not set" && exit 1
+if [ -z "${SERVER_HOSTNAME}" ]; then
+    SERVER_HOSTNAME=`hostname`
+    echo "SERVER_HOSTNAME is not set; use default hostname ${SERVER_HOSTNAME}"
+fi
+
+#[ -z "${SMTP_SERVER}" ] && echo "SMTP_SERVER is not set" && exit 1
 [ -z "${SERVER_HOSTNAME}" ] && echo "SERVER_HOSTNAME is not set" && exit 1
 [ ! -z "${SMTP_USERNAME}" -a -z "${SMTP_PASSWORD}" ] && echo "SMTP_USERNAME is set but SMTP_PASSWORD is not set" && exit 1
 
@@ -77,13 +82,13 @@ fi
 if [ ! -z "${SMTP_CERT_FILE}" ]; then
     cp "${SMTP_CERT_FILE}" /etc/postfix/smtpd_cert.pem
     chmod 0644 /etc/postfix/smtpd_cert.pem
-    chown root.root /etc/postfix/smtpd_cert.pem
+    chown root:root /etc/postfix/smtpd_cert.pem
     postconf -e "smtpd_tls_cert_file = /etc/postfix/smtpd_cert.pem"
 fi
 if [ ! -z "${SMTP_KEY_FILE}" ]; then
     cp "${SMTP_KEY_FILE}" /etc/postfix/smtpd_key.pem
     chmod 0600 /etc/postfix/smtpd_key.pem
-    chown root.root /etc/postfix/smtpd_key.pem
+    chown root:root /etc/postfix/smtpd_key.pem
     postconf -e "smtpd_tls_key_file = /etc/postfix/smtpd_key.pem"
 fi
 
@@ -219,7 +224,7 @@ fi
 if [ ! -z "${SENDER_LOGIN_MAP_FILE}" ]; then
     cp "${SENDER_LOGIN_MAP_FILE}" /etc/postfix/sender_login
     if [ "${SENDER_LOGIN_LDAP}" = "true" ]; then
-        chown postfix.mail /etc/postfix/sender_login
+        chown postfix:mail /etc/postfix/sender_login
         postconf -e 'smtpd_sender_login_maps = proxy:ldap:/etc/postfix/sender_login'
     else
         postmap lmdb:/etc/postfix/sender_login
@@ -238,7 +243,7 @@ fi
 
 if [ ! -z "${KRB5_KEYTAB_FILE}" ]; then
     cp "${KRB5_KEYTAB_FILE}" /etc/krb5.keytab
-    chown postfix.mail /etc/krb5.keytab
+    chown postfix:mail /etc/krb5.keytab
     chmod 0600 /etc/krb5.keytab
 fi
 
@@ -271,7 +276,7 @@ fi
 rm -f /var/spool/postfix/pid/master.pid
 
 test ! -f /var/log/maillog && touch /var/log/maillog
-chown postfix.postfix /var/log/maillog
+chown postfix:postfix /var/log/maillog
 chmod 640 /var/log/maillog
 
 exec supervisord -c /etc/supervisord.conf

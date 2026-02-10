@@ -2,7 +2,7 @@
 script_file=`readlink -f "$0"`
 script_dir=`dirname "$script_file"`
 script_docker_image_name=`basename "$script_dir"`
-tag='latest'
+tag='dev'
 docker_user='rothan'
 got_tag=0
 build_ldap=0
@@ -13,6 +13,7 @@ function usage() {
 	echo "OPTIONS:"
 	echo "    -h, --help            shows this help"
 	echo "    -v, --verbose         enable verbose output"
+	echo "    -L, --latest          build latest instead of development"
 	echo ""
 	echo "  TAG        name of the docker image tag (default $tag)"
 	echo ""
@@ -25,6 +26,9 @@ while [ $# -ne 0 ]; do
 	case "$1" in
 	'-?'|'-h'|'--help') usage;;
 	'-v'|'--verbose') verbose=1; ;;
+	'-L'|'--latest') tag='latest'; ;;
+	'--push') push=1; ;;
+	'--tag') tag="$2"; got_tag=1; shift; ;;
 	-*)
 		echo "Unrecognized option $1" >&2
 		exit 1
@@ -46,6 +50,12 @@ echo "Builds the docker image: $script_docker_image_name, tag $tag"
 
 full_image_name="${script_docker_image_name}:${tag}"
 docker build --tag "$full_image_name" -f "$script_dir/Dockerfile" "$script_dir"
+[ $? -ne 0 ] && exit 1
 
 docker tag "$full_image_name" "$docker_user/$full_image_name"
-docker push "$docker_user/$full_image_name"
+if [ $push -ne 0 ]; then
+	docker login --username "${docker_user}"
+	[ $? -ne 0 ] && exit 1
+	docker push "$docker_user/$full_image_name"
+fi
+
